@@ -140,9 +140,25 @@
                 maintainAspectRatio: false,
                 plugins: { legend: { display: false } },
                 scales: {
-                    y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b', font: { size: 10 } } },
-                    x: { grid: { display: false }, ticks: { color: '#64748b', font: { size: 10 } } }
-                },
+    x: {
+        title: {
+            display: true,
+            text: 'Page Requests (Time)',
+            color: '#94a3b8'
+        },
+        grid: { display: false },
+        ticks: { color: '#64748b', font: { size: 10 } }
+    },
+    y: {
+        title: {
+            display: true,
+            text: 'Page Faults',
+            color: '#94a3b8'
+        },
+        grid: { color: 'rgba(255,255,255,0.05)' },
+        ticks: { color: '#64748b', font: { size: 10 } }
+    }
+}
                 animation: { duration: 400 }
             };
 
