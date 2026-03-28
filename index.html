@@ -17,6 +17,7 @@
         @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        .chart-container { position: relative; height: 220px; width: 100%; }
     </style>
 </head>
 <body class="p-6">
@@ -70,10 +71,18 @@
                     <div id="framesContainer" class="flex flex-wrap gap-6 min-h-[140px] justify-center lg:justify-start"></div>
                 </div>
 
-                <div class="glass p-6 rounded-3xl border border-slate-800">
-                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Real-time Fault Accumulation</h3>
-                    <div class="h-[200px] w-full">
-                        <canvas id="liveChart"></canvas>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="glass p-6 rounded-3xl border border-slate-800">
+                        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Fault Progression</h3>
+                        <div class="chart-container">
+                            <canvas id="lineChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="glass p-6 rounded-3xl border border-slate-800">
+                        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Algorithm Efficiency Gap</h3>
+                        <div class="chart-container">
+                            <canvas id="barChart"></canvas>
+                        </div>
                     </div>
                 </div>
 
@@ -119,35 +128,42 @@
 
     <script>
         let isRunning = false;
-        let chartInstance = null;
+        let lineChart, barChart;
 
-        function initChart() {
-            const ctx = document.getElementById('liveChart').getContext('2d');
-            if(chartInstance) chartInstance.destroy();
-            chartInstance = new Chart(ctx, {
+        function initCharts() {
+            const commonOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b', font: { size: 10 } } },
+                    x: { grid: { display: false }, ticks: { color: '#64748b', font: { size: 10 } } }
+                },
+                animation: { duration: 400 }
+            };
+
+            if(lineChart) lineChart.destroy();
+            if(barChart) barChart.destroy();
+
+            lineChart = new Chart(document.getElementById('lineChart'), {
                 type: 'line',
+                data: { labels: [], datasets: [{ label: 'Faults', data: [], borderColor: '#60a5fa', backgroundColor: 'rgba(96, 165, 250, 0.1)', fill: true, tension: 0.4, borderWidth: 2, pointRadius: 2 }] },
+                options: commonOptions
+            });
+
+            barChart = new Chart(document.getElementById('barChart'), {
+                type: 'bar',
                 data: {
-                    labels: [],
+                    labels: ['FIFO', 'LRU', 'Optimal'],
                     datasets: [{
-                        label: 'Cumulative Page Faults',
-                        data: [],
-                        borderColor: '#60a5fa',
-                        backgroundColor: 'rgba(96, 165, 250, 0.1)',
-                        borderWidth: 3,
-                        tension: 0.4,
-                        fill: true,
-                        pointBackgroundColor: '#60a5fa'
+                        data: [0, 0, 0],
+                        backgroundColor: ['rgba(148, 163, 184, 0.2)', 'rgba(52, 211, 153, 0.2)', 'rgba(96, 165, 250, 0.2)'],
+                        borderColor: ['#94a3b8', '#34d399', '#60a5fa'],
+                        borderWidth: 1,
+                        borderRadius: 8
                     }]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        y: { beginAtZero: true, grid: { color: '#1e293b' }, ticks: { color: '#64748b' } },
-                        x: { grid: { display: false }, ticks: { color: '#64748b' } }
-                    }
-                }
+                options: { ...commonOptions, scales: { y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' } } } }
             });
         }
 
@@ -159,7 +175,7 @@
         async function runAdvancedSim() {
             if(isRunning) return;
             isRunning = true;
-            initChart();
+            initCharts();
 
             const cap = parseInt(document.getElementById('frameCount').value);
             const algoType = document.getElementById('algoSelect').value;
@@ -178,18 +194,22 @@
                 "px-3 py-1 bg-emerald-500/10 text-emerald-400 text-[10px] font-bold rounded-full border border-emerald-500/20 uppercase" :
                 "px-3 py-1 bg-blue-500/10 text-blue-400 text-[10px] font-bold rounded-full border border-blue-500/20 uppercase";
 
-            const fifo_f = calculateFaults('FIFO', pages, cap);
-            const lru_f = calculateFaults('LRU', pages, cap);
-            const opt_f = calculateFaults('OPTIMAL', pages, cap);
-            updateTable(fifo_f, lru_f, opt_f, pages.length);
+            const f_fifo = calculateFaults('FIFO', pages, cap);
+            const f_lru = calculateFaults('LRU', pages, cap);
+            const f_opt = calculateFaults('OPTIMAL', pages, cap);
             
+            updateTable(f_fifo, f_lru, f_opt, pages.length);
+            
+            // Final values for the bar chart comparison
+            barChart.data.datasets[0].data = [f_fifo, f_lru, f_opt];
+            barChart.update();
+
             await animateProcess(pages, cap, algoType);
             isRunning = false;
         }
 
         function calculateFaults(type, pages, cap) {
-            let frames = [];
-            let f = 0;
+            let frames = []; let f = 0;
             pages.forEach((p, i) => {
                 if (!frames.includes(p)) {
                     f++;
@@ -237,10 +257,9 @@
             const prog = document.getElementById('latencyProgress');
 
             container.innerHTML = '';
-            log.innerHTML = `<div class="text-blue-400 font-bold border-b border-blue-900 pb-1 mb-2 tracking-tighter uppercase italic">MMU Initialized: Using ${type} Logic</div>`;
+            log.innerHTML = `<div class="text-blue-400 font-bold border-b border-blue-900 pb-1 mb-2 tracking-tighter uppercase italic">MMU Initialized: ${type}</div>`;
             
-            let frames = [];
-            let faults = 0;
+            let frames = []; let currentFaults = 0;
 
             for(let i=0; i<cap; i++) {
                 container.innerHTML += `<div id="slot-${i}" class="w-24 h-32 bg-slate-900 border-2 border-slate-800 rounded-3xl flex flex-col items-center justify-center frame-slot relative shadow-inner">
@@ -256,12 +275,12 @@
                 if(hitIdx !== -1) {
                     const el = document.getElementById(`slot-${hitIdx}`);
                     el.classList.add('border-emerald-500', 'bg-emerald-500/10', 'hit-pulse');
-                    log.innerHTML += `<div>[T+${i*10}ms] <span class="text-emerald-500 font-bold">HIT:</span> Page ${p} served from RAM</div>`;
+                    log.innerHTML += `<div>[T+${i*10}] <span class="text-emerald-500">HIT:</span> Page ${p}</div>`;
                     setTimeout(() => el.classList.remove('border-emerald-500', 'bg-emerald-500/10', 'hit-pulse'), 800);
                 } else {
-                    faults++;
-                    latencyBox.innerText = (faults * 5) + ' ms';
-                    prog.style.width = Math.min((faults/pages.length)*100, 100) + '%';
+                    currentFaults++;
+                    latencyBox.innerText = (currentFaults * 5) + ' ms';
+                    prog.style.width = Math.min((currentFaults/pages.length)*100, 100) + '%';
                     
                     let target;
                     if(frames.length < cap) {
@@ -269,9 +288,8 @@
                         frames.push(p);
                     } else {
                         let victim;
-                        if(type === 'FIFO') {
-                            victim = frames[0];
-                        } else {
+                        if(type === 'FIFO') victim = frames[0];
+                        else {
                             const past = pages.slice(0, i);
                             victim = frames.reduce((a, b) => past.lastIndexOf(a) < past.lastIndexOf(b) ? a : b);
                         }
@@ -282,17 +300,17 @@
                     updateValues(frames, cap);
                     const el = document.getElementById(`slot-${target}`);
                     el.classList.add('border-red-500', 'bg-red-500/10', 'miss-shake');
-                    log.innerHTML += `<div>[T+${i*10}ms] <span class="text-red-500 font-bold">MISS:</span> Page ${p} → Disk I/O Swap</div>`;
+                    log.innerHTML += `<div>[T+${i*10}] <span class="text-red-500">MISS:</span> Page ${p} Swapped</div>`;
                     setTimeout(() => el.classList.remove('border-red-500', 'bg-red-500/10', 'miss-shake'), 800);
                 }
 
-                // Update Chart Data
-                chartInstance.data.labels.push(`P${p}`);
-                chartInstance.data.datasets[0].data.push(faults);
-                chartInstance.update('none');
+                // Dynamic Line Chart Update
+                lineChart.data.labels.push(`${i+1}`);
+                lineChart.data.datasets[0].data.push(currentFaults);
+                lineChart.update();
 
                 log.scrollTop = log.scrollHeight;
-                await new Promise(r => setTimeout(r, 1000));
+                await new Promise(r => setTimeout(r, 800));
             }
             log.innerHTML += `<div class="mt-4 text-emerald-400 font-bold uppercase tracking-widest text-center border-t border-slate-800 pt-2">Task Complete</div>`;
         }
@@ -300,10 +318,9 @@
         function updateValues(f, c) {
             for(let i=0; i<c; i++) {
                 const text = document.getElementById(`val-${i}`);
-                if(text) {
-                    text.innerText = f[i] !== undefined ? f[i] : '-';
-                    text.className = f[i] !== undefined ? "text-3xl font-800 text-white" : "text-3xl font-800 text-slate-700";
-                }
+                if(!text) continue;
+                text.innerText = f[i] !== undefined ? f[i] : '-';
+                text.className = f[i] !== undefined ? "text-3xl font-800 text-white" : "text-3xl font-800 text-slate-700";
             }
         }
     </script>
