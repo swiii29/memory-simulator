@@ -70,6 +70,13 @@
                     <div id="framesContainer" class="flex flex-wrap gap-6 min-h-[140px] justify-center lg:justify-start"></div>
                 </div>
 
+                <div class="glass p-6 rounded-3xl border border-slate-800">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Real-time Fault Accumulation</h3>
+                    <div class="h-[200px] w-full">
+                        <canvas id="liveChart"></canvas>
+                    </div>
+                </div>
+
                 <div class="glass p-6 rounded-3xl overflow-hidden">
                     <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Comparative Efficiency Analysis</h3>
                     <div class="overflow-x-auto text-xs md:text-sm">
@@ -87,22 +94,6 @@
                                 <tr><td colspan="5" class="py-8 text-center text-slate-600 italic">Initialize simulation to compare algorithmic performance...</td></tr>
                             </tbody>
                         </table>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pb-8">
-                    <div class="bg-emerald-500/5 border border-emerald-500/10 p-5 rounded-2xl">
-                        <h4 class="text-emerald-400 font-bold text-xs mb-2 tracking-wide uppercase">Real-World Latency</h4>
-                        <p class="text-[10px] text-slate-400 leading-relaxed italic">
-                            A "Page Fault" (MISS) forces the CPU to wait for the SSD/HDD. This takes ~5-10ms, while a "Hit" takes <10ns. Efficient algorithms like LRU (used in <b>Linux/MacOS</b>) reduce these penalties drastically.
-                        </p>
-                    </div>
-                    <div class="bg-blue-500/5 border border-blue-500/10 p-5 rounded-2xl">
-                        <h4 class="text-blue-400 font-bold text-xs mb-2 tracking-wide uppercase">Industrial Use</h4>
-                        <p class="text-[10px] text-slate-400 leading-relaxed italic">
-                            <b>LRU:</b> Used in database caching (Redis) and browser history management.<br>
-                            <b>Optimal:</b> Theoretical maximum performance; used by researchers to evaluate new algorithms.
-                        </p>
                     </div>
                 </div>
             </div>
@@ -128,6 +119,37 @@
 
     <script>
         let isRunning = false;
+        let chartInstance = null;
+
+        function initChart() {
+            const ctx = document.getElementById('liveChart').getContext('2d');
+            if(chartInstance) chartInstance.destroy();
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Cumulative Page Faults',
+                        data: [],
+                        borderColor: '#60a5fa',
+                        backgroundColor: 'rgba(96, 165, 250, 0.1)',
+                        borderWidth: 3,
+                        tension: 0.4,
+                        fill: true,
+                        pointBackgroundColor: '#60a5fa'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#1e293b' }, ticks: { color: '#64748b' } },
+                        x: { grid: { display: false }, ticks: { color: '#64748b' } }
+                    }
+                }
+            });
+        }
 
         function loadBelady() {
             document.getElementById('seq').value = "1, 2, 3, 4, 1, 2, 5, 1, 2, 3, 4, 5";
@@ -137,6 +159,7 @@
         async function runAdvancedSim() {
             if(isRunning) return;
             isRunning = true;
+            initChart();
 
             const cap = parseInt(document.getElementById('frameCount').value);
             const algoType = document.getElementById('algoSelect').value;
@@ -149,20 +172,17 @@
                 return;
             }
 
-            // UI Header Tag Update
             const tag = document.getElementById('algoTag');
             tag.innerText = `${algoType} ACTIVE`;
             tag.className = algoType === 'LRU' ? 
                 "px-3 py-1 bg-emerald-500/10 text-emerald-400 text-[10px] font-bold rounded-full border border-emerald-500/20 uppercase" :
                 "px-3 py-1 bg-blue-500/10 text-blue-400 text-[10px] font-bold rounded-full border border-blue-500/20 uppercase";
 
-            // Static Performance Math
             const fifo_f = calculateFaults('FIFO', pages, cap);
             const lru_f = calculateFaults('LRU', pages, cap);
             const opt_f = calculateFaults('OPTIMAL', pages, cap);
             updateTable(fifo_f, lru_f, opt_f, pages.length);
             
-            // Start Visual Animation
             await animateProcess(pages, cap, algoType);
             isRunning = false;
         }
@@ -265,6 +285,12 @@
                     log.innerHTML += `<div>[T+${i*10}ms] <span class="text-red-500 font-bold">MISS:</span> Page ${p} → Disk I/O Swap</div>`;
                     setTimeout(() => el.classList.remove('border-red-500', 'bg-red-500/10', 'miss-shake'), 800);
                 }
+
+                // Update Chart Data
+                chartInstance.data.labels.push(`P${p}`);
+                chartInstance.data.datasets[0].data.push(faults);
+                chartInstance.update('none');
+
                 log.scrollTop = log.scrollHeight;
                 await new Promise(r => setTimeout(r, 1000));
             }
@@ -274,8 +300,10 @@
         function updateValues(f, c) {
             for(let i=0; i<c; i++) {
                 const text = document.getElementById(`val-${i}`);
-                text.innerText = f[i] !== undefined ? f[i] : '-';
-                text.className = f[i] !== undefined ? "text-3xl font-800 text-white" : "text-3xl font-800 text-slate-700";
+                if(text) {
+                    text.innerText = f[i] !== undefined ? f[i] : '-';
+                    text.className = f[i] !== undefined ? "text-3xl font-800 text-white" : "text-3xl font-800 text-slate-700";
+                }
             }
         }
     </script>
