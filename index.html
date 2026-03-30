@@ -1,155 +1,284 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OS Memory Visualizer Pro</title>
-<script src="[https://cdn.tailwindcss.com](https://cdn.tailwindcss.com/)"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
-<style>
-body { font-family: 'Inter', sans-serif; background-color: #f0f2f5; }
-.glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); }
-.cell-transition { transition: all 0.3s ease; }
-.hit-bg { background-color: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
-.miss-bg { background-color: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced OS Memory Architect | Nirma University Project</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #020617; color: #f8fafc; }
+        .glass { background: rgba(30, 41, 59, 0.5); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+        .frame-slot { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .hit-pulse { animation: hitPulse 0.7s ease-out; }
+        @keyframes hitPulse { 0% { box-shadow: 0 0 0 0px rgba(16, 185, 129, 0.4); } 100% { box-shadow: 0 0 0 20px rgba(16, 185, 129, 0); } }
+        .miss-shake { animation: shake 0.4s ease-in-out; }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        input[type=range] { accent-color: #3b82f6; }
+    </style>
 </head>
-<body class="p-4 md:p-8">
-    <div class="max-w-6xl mx-auto">
-    <header class="mb-8 text-center">
-        <h1 class="text-4xl font-extrabold text-slate-800 tracking-tight">Virtual Memory Simulator</h1>
-        <p class="text-slate-500 mt-2 text-lg">Visualizing Page Replacement Algorithms (FIFO, LRU, Optimal)</p>
-    </header>
+<body class="p-6">
 
-    <div class="glass-card rounded-2xl p-6 shadow-xl mb-8 grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
-        <div class="md:col-span-2">
-            <label class="block text-sm font-semibold text-slate-700 mb-2">Reference String (Page Requests)</label>
-            <input type="text" id="refString" value="7, 0, 1, 2, 0, 3, 0, 4, 2, 3, 0, 3, 2"
-                class="w-full p-3 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none transition">
+    <div class="max-w-7xl mx-auto">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+            <div>
+                <h1 class="text-3xl font-800 bg-gradient-to-r from-blue-400 to-emerald-300 bg-clip-text text-transparent italic">
+                    Memory Management Architect
+                </h1>
+                <p class="text-slate-400 text-sm">Virtual Memory & Page Replacement Simulator</p>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="loadBelady()" class="bg-slate-800 hover:bg-slate-700 px-4 py-2 rounded-xl text-[10px] font-bold border border-slate-700 transition uppercase tracking-wider">Test Belady's Anomaly</button>
+                <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-xl text-[10px] font-bold transition shadow-lg shadow-blue-500/20 uppercase tracking-wider">Export Report</button>
+            </div>
         </div>
-        <div>
-            <label class="block text-sm font-semibold text-slate-700 mb-2">Number of Frames (RAM Slots)</label>
-            <input type="number" id="frames" value="3" min="1" max="7"
-                class="w-full p-3 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none">
+
+        <div class="glass p-6 rounded-3xl shadow-2xl mb-8 grid grid-cols-1 lg:grid-cols-6 gap-6 items-end">
+            <div>
+                <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Frame Capacity</label>
+                <select id="frameCount" class="w-full bg-slate-900 border border-slate-700 p-3 rounded-xl text-blue-400 font-bold outline-none">
+                    <option value="3">3 Slots</option>
+                    <option value="4">4 Slots</option>
+                    <option value="5">5 Slots</option>
+                </select>
+            </div>
+            <div>
+                <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Animate Logic</label>
+                <select id="algoSelect" class="w-full bg-slate-900 border border-slate-700 p-3 rounded-xl text-emerald-400 font-bold outline-none">
+                    <option value="FIFO">FIFO (Oldest First)</option>
+                    <option value="LRU">LRU (Least Recent)</option>
+                    <option value="OPTIMAL">OPTIMAL (Theoretical)</option>
+                </select>
+            </div>
+            <div class="lg:col-span-2">
+                <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Reference Page Stream</label>
+                <input type="text" id="seq" value="7, 0, 1, 2, 0, 3, 0, 4, 2, 3, 0" class="w-full bg-slate-900 border border-slate-700 p-3 rounded-xl outline-none focus:border-blue-500 transition font-mono text-sm">
+            </div>
+            <div class="px-2">
+                <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block flex justify-between">
+                    Speed <span><span id="speedVal">1</span>x</span>
+                </label>
+                <input type="range" id="speedSlider" min="0.5" max="4" step="0.5" value="1" oninput="document.getElementById('speedVal').innerText=this.value" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer">
+            </div>
+            <button onclick="runAdvancedSim()" class="w-full bg-blue-600 hover:bg-blue-500 py-3 rounded-xl font-bold shadow-lg shadow-blue-500/20 transition-all transform active:scale-95">
+                Initialize Simulation
+            </button>
         </div>
-        <button onclick="simulateAll()" class="md:col-span-3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow-lg transition transform hover:-translate-y-1">
-            Generate Simulation Analysis
-        </button>
-    </div>
 
-    <div id="displayArea" class="space-y-12">
-        <div class="text-center py-20 text-slate-400">
-            <p>Enter data and click "Generate" to see the magic happen.</p>
-        </div>
-    </div>
-</div>
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div class="lg:col-span-8 space-y-8">
+                <div class="glass p-8 rounded-3xl border border-blue-500/20">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Hardware Logic: RAM Frames</h3>
+                        <div id="algoTag" class="px-3 py-1 bg-blue-500/10 text-blue-400 text-[10px] font-bold rounded-full border border-blue-500/20 uppercase">Waiting...</div>
+                    </div>
+                    <div id="framesContainer" class="flex flex-wrap gap-6 min-h-[140px] justify-center lg:justify-start"></div>
+                </div>
 
-<script>
-    function simulateAll() {
-        const rawInput = document.getElementById('refString').value;
-        const frameCount = parseInt(document.getElementById('frames').value);
-        const pages = rawInput.split(',').map(s => s.trim()).filter(s => s !== "").map(Number);
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="glass p-6 rounded-3xl border border-slate-800">
+                        <h3 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">Fault Progression</h3>
+                        <div style="height: 200px; width: 100%;">
+                            <canvas id="progressionChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="glass p-6 rounded-3xl border border-slate-800">
+                        <h3 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">Algorithm Comparison</h3>
+                        <div style="height: 200px; width: 100%;">
+                            <canvas id="comparisonChart"></canvas>
+                        </div>
+                    </div>
+                </div>
 
-        const area = document.getElementById('displayArea');
-        area.innerHTML = '';
-
-        const algorithms = ['FIFO', 'LRU', 'Optimal'];
-        algorithms.forEach(algo => {
-            const result = runAlgo(algo, pages, frameCount);
-            renderUI(algo, pages, result, area);
-        });
-    }
-
-    function runAlgo(name, pages, capacity) {
-        let frames = [];
-        let faults = 0;
-        let steps = [];
-
-        pages.forEach((page, i) => {
-            let hit = frames.includes(page);
-            let replaced = null;
-
-            if (!hit) {
-                faults++;
-                if (frames.length < capacity) {
-                    frames.push(page);
-                } else {
-                    let idxToReplace = 0;
-                    if (name === 'FIFO') {
-                        replaced = frames.shift();
-                        frames.push(page);
-                    } else if (name === 'LRU') {
-                        const past = pages.slice(0, i);
-                        replaced = frames.reduce((a, b) => past.lastIndexOf(a) < past.lastIndexOf(b) ? a : b);
-                        frames[frames.indexOf(replaced)] = page;
-                    } else { // Optimal
-                        const future = pages.slice(i + 1);
-                        replaced = frames.find(f => !future.includes(f));
-                        if (!replaced) {
-                            replaced = frames.reduce((a, b) => future.indexOf(a) > future.indexOf(b) ? a : b);
-                        }
-                        frames[frames.indexOf(replaced)] = page;
-                    }
-                }
-            }
-            steps.push({ page, currentFrames: [...frames], hit, replaced });
-        });
-        return { steps, faults };
-    }
-
-    function renderUI(name, pages, data, container) {
-        const section = document.createElement('div');
-        section.className = "glass-card rounded-2xl shadow-lg overflow-hidden border border-slate-200";
-
-        const hitRate = (((pages.length - data.faults) / pages.length) * 100).toFixed(1);
-
-        let html = `
-            <div class="bg-slate-800 p-4 flex justify-between items-center text-white">
-                <h2 class="text-xl font-bold uppercase tracking-widest">${name} Algorithm</h2>
-                <div class="flex gap-4 text-sm">
-                    <span>Faults: <b class="text-red-400">${data.faults}</b></span>
-                    <span>Hit Rate: <b class="text-green-400">${hitRate}%</b></span>
+                <div class="glass p-6 rounded-3xl overflow-hidden">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Comparative Efficiency Analysis</h3>
+                    <div class="overflow-x-auto text-xs md:text-sm">
+                        <table class="w-full text-left">
+                            <thead class="text-slate-500 border-b border-slate-700">
+                                <tr>
+                                    <th class="pb-3">Algorithm</th>
+                                    <th class="pb-3 text-center">Faults</th>
+                                    <th class="pb-3 text-center">Hits</th>
+                                    <th class="pb-3 text-center">Hit Ratio</th>
+                                    <th class="pb-3 text-right">Disk Penalty</th>
+                                </tr>
+                            </thead>
+                            <tbody id="compareBody" class="text-slate-300">
+                                <tr><td colspan="5" class="py-8 text-center text-slate-600 italic">Run simulation to see stats...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
-            <div class="p-6 overflow-x-auto">
-                <table class="w-full border-collapse">
-                    <thead>
-                        <tr class="text-slate-500 text-xs uppercase">
-                            <th class="p-2 border-b text-left">Pages</th>
-                            ${pages.map(p => `<th class="p-2 border-b">${p}</th>`).join('')}
-                        </tr>
-                    </thead>
-                    <tbody>`;
 
-        // Render Frame Rows
-        const maxFrames = Math.max(...data.steps.map(s => s.currentFrames.length));
-        for (let f = 0; f < maxFrames; f++) {
-            html += `<tr><td class="p-2 text-xs font-bold text-slate-400">Slot ${f+1}</td>`;
-            data.steps.forEach(step => {
-                const val = step.currentFrames[f] !== undefined ? step.currentFrames[f] : '-';
-                html += `<td class="p-2 text-center font-mono font-bold border-t border-slate-100">${val}</td>`;
+            <div class="lg:col-span-4 space-y-6">
+                <div class="bg-gradient-to-br from-indigo-600 to-blue-700 p-6 rounded-3xl shadow-xl border border-white/10">
+                    <p class="text-blue-100 text-[10px] uppercase font-bold tracking-widest">Calculated Disk I/O Wait</p>
+                    <h2 id="latencyVal" class="text-4xl font-800 my-1">0 ms</h2>
+                    <div class="w-full bg-white/10 h-1 rounded-full mt-2 overflow-hidden">
+                        <div id="latencyProgress" class="bg-blue-300 h-full transition-all duration-500" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <div class="glass p-6 rounded-3xl h-[420px] flex flex-col">
+                    <h3 class="text-xs font-bold text-slate-500 mb-4 uppercase tracking-widest">Kernel Event Stream</h3>
+                    <div id="log" class="flex-1 overflow-y-auto font-mono text-[10px] text-slate-400 space-y-2 pr-2">
+                        <div class="text-slate-600 italic">Ready to initialize...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isRunning = false;
+        let progChart, compChart;
+
+        function initCharts() {
+            if(progChart) progChart.destroy();
+            if(compChart) compChart.destroy();
+            const ctx1 = document.getElementById('progressionChart').getContext('2d');
+            const ctx2 = document.getElementById('comparisonChart').getContext('2d');
+            progChart = new Chart(ctx1, {
+                type: 'line',
+                data: { labels: [], datasets: [{ label: 'Faults', data: [], borderColor: '#60a5fa', tension: 0.4, fill: true, backgroundColor: 'rgba(96, 165, 250, 0.1)' }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { display: false }, x: { display: false } } }
             });
-            html += `</tr>`;
+            compChart = new Chart(ctx2, {
+                type: 'bar',
+                data: { labels: ['FIFO', 'LRU', 'OPT'], datasets: [{ data: [0, 0, 0], backgroundColor: ['#94a3b8', '#34d399', '#60a5fa'], borderRadius: 5 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: '#1e293b' } } } }
+            });
         }
 
-        // Render Result Row
-        html += `<tr class="bg-slate-50">
-                    <td class="p-3 text-xs font-bold text-slate-400">Status</td>
-                    ${data.steps.map(s => `
-                        <td class="p-2 text-center">
-                            <span class="px-2 py-1 rounded-md text-[10px] font-bold ${s.hit ? 'hit-bg' : 'miss-bg'}">
-                                ${s.hit ? 'HIT' : 'MISS'}
-                            </span>
-                        </td>
-                    `).join('')}
-                </tr>
-            </tbody>
-        </table>
-    </div>`;
+        function calculateFaults(type, pages, cap) {
+            let frames = []; let f = 0;
+            pages.forEach((p, i) => {
+                if (!frames.includes(p)) {
+                    f++;
+                    if (frames.length < cap) frames.push(p);
+                    else {
+                        if (type === 'FIFO') { frames.shift(); frames.push(p); }
+                        else if (type === 'LRU') {
+                            const past = pages.slice(0, i);
+                            const victim = frames.reduce((a, b) => past.lastIndexOf(a) < past.lastIndexOf(b) ? a : b);
+                            frames[frames.indexOf(victim)] = p;
+                        } else {
+                            const future = pages.slice(i + 1);
+                            const victim = frames.reduce((a, b) => {
+                                let distA = future.indexOf(a) === -1 ? Infinity : future.indexOf(a);
+                                let distB = future.indexOf(b) === -1 ? Infinity : future.indexOf(b);
+                                return distA > distB ? a : b;
+                            });
+                            frames[frames.indexOf(victim)] = p;
+                        }
+                    }
+                }
+            });
+            return f;
+        }
 
-        section.innerHTML = html;
-        container.appendChild(section);
-    }
-</script>
+        async function runAdvancedSim() {
+            if(isRunning) return;
+            isRunning = true;
+            initCharts();
+            const cap = parseInt(document.getElementById('frameCount').value);
+            const algoType = document.getElementById('algoSelect').value;
+            const pages = document.getElementById('seq').value.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+            
+            const f_fifo = calculateFaults('FIFO', pages, cap);
+            const f_lru = calculateFaults('LRU', pages, cap);
+            const f_opt = calculateFaults('OPTIMAL', pages, cap);
+            
+            compChart.data.datasets[0].data = [f_fifo, f_lru, f_opt];
+            compChart.update();
+
+            const total = pages.length;
+            document.getElementById('compareBody').innerHTML = `
+                <tr class="border-b border-slate-800/50"><td>FIFO</td><td class="text-center">${f_fifo}</td><td class="text-center">${total-f_fifo}</td><td class="text-center">${((total-f_fifo)/total*100).toFixed(1)}%</td><td class="text-right">${f_fifo*5}ms</td></tr>
+                <tr class="border-b border-slate-800/50"><td class="text-emerald-400 font-bold">LRU</td><td class="text-center">${f_lru}</td><td class="text-center">${total-f_lru}</td><td class="text-center">${((total-f_lru)/total*100).toFixed(1)}%</td><td class="text-right">${f_lru*5}ms</td></tr>
+                <tr class="text-blue-400 font-bold"><td>Optimal</td><td class="text-center">${f_opt}</td><td class="text-center">${total-f_opt}</td><td class="text-center">${((total-f_opt)/total*100).toFixed(1)}%</td><td class="text-right">${f_opt*5}ms</td></tr>
+            `;
+
+            await animate(pages, cap, algoType);
+            isRunning = false;
+        }
+
+        async function animate(pages, cap, type) {
+            const container = document.getElementById('framesContainer');
+            const log = document.getElementById('log');
+            const speedSlider = document.getElementById('speedSlider');
+            container.innerHTML = ''; log.innerHTML = '';
+            
+            let frames = []; let faults = 0;
+            for(let i=0; i<cap; i++) container.innerHTML += `<div id="slot-${i}" class="w-24 h-32 bg-slate-900 border-2 border-slate-800 rounded-3xl flex flex-col items-center justify-center relative"><span id="val-${i}" class="text-3xl font-800 text-slate-700">-</span></div>`;
+
+            for(let i=0; i<pages.length; i++) {
+                // Calculate dynamic sleep time based on slider
+                const sleepTime = 1000 / parseFloat(speedSlider.value);
+                const p = pages[i];
+                let hitIdx = frames.indexOf(p);
+
+                if(hitIdx !== -1) {
+                    const el = document.getElementById(`slot-${hitIdx}`);
+                    el.classList.add('hit-pulse', 'border-emerald-500');
+                    log.innerHTML += `<div>[T+${i*10}] <span class="text-emerald-400">HIT:</span> Page ${p}</div>`;
+                    setTimeout(() => el.classList.remove('hit-pulse', 'border-emerald-500'), sleepTime * 0.8);
+                } else {
+                    faults++;
+                    let target;
+                    if(frames.length < cap) { target = frames.length; frames.push(p); }
+                    else {
+                        if (type === 'FIFO') {
+                            const victim = frames[0];
+                            target = frames.indexOf(victim);
+                            frames.shift(); frames.push(p);
+                            // Shift animation correction
+                            target = frames.length - 1; 
+                            updateValuesManually(frames, cap);
+                        } else if (type === 'LRU') {
+                            let victim = frames.reduce((a, b) => pages.slice(0, i).lastIndexOf(a) < pages.slice(0, i).lastIndexOf(b) ? a : b);
+                            target = frames.indexOf(victim); frames[target] = p;
+                        } else {
+                            const future = pages.slice(i + 1);
+                            let victim = frames.reduce((a, b) => {
+                                let distA = future.indexOf(a) === -1 ? Infinity : future.indexOf(a);
+                                let distB = future.indexOf(b) === -1 ? Infinity : future.indexOf(b);
+                                return distA > distB ? a : b;
+                            });
+                            target = frames.indexOf(victim); frames[target] = p;
+                        }
+                    }
+                    
+                    const valEl = document.getElementById(`val-${target}`);
+                    valEl.innerText = p; valEl.className = "text-3xl font-800 text-white";
+                    const el = document.getElementById(`slot-${target}`);
+                    el.classList.add('miss-shake', 'border-red-500');
+                    log.innerHTML += `<div>[T+${i*10}] <span class="text-red-500">MISS:</span> Page ${p}</div>`;
+                    setTimeout(() => el.classList.remove('miss-shake', 'border-red-500'), sleepTime * 0.8);
+                }
+
+                progChart.data.labels.push(i); progChart.data.datasets[0].data.push(faults); progChart.update();
+                document.getElementById('latencyVal').innerText = (faults * 5) + ' ms';
+                document.getElementById('latencyProgress').style.width = ((i+1)/pages.length*100) + '%';
+                log.scrollTop = log.scrollHeight;
+                await new Promise(r => setTimeout(r, sleepTime));
+            }
+        }
+
+        function updateValuesManually(f, c) {
+            for(let i=0; i<c; i++) {
+                const el = document.getElementById(`val-${i}`);
+                if(f[i] !== undefined) { el.innerText = f[i]; el.className = "text-3xl font-800 text-white"; }
+            }
+        }
+
+        function loadBelady() {
+            document.getElementById('seq').value = "1, 2, 3, 4, 1, 2, 5, 1, 2, 3, 4, 5";
+        }
+    </script>
 </body>
 </html>
